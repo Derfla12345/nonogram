@@ -6,14 +6,13 @@ init()
 
 screenSize = [1280, 720]
 squareSize = 21
-gridSize = 10
+gridSize = 10 # default 10
 gapSize = 1
 screen = display.set_mode(screenSize)
 hintFontSize = 16
 hintFont = pygame.font.SysFont("consolas", hintFontSize)
-# fnt instead of font because font is taken. truly unfortunate
 fps = 144
-clock = time.Clock()
+clock = pygame.time.Clock()
 backgroundColor = (175, 175, 175)
 hoverColor = (150, 150, 150)
 activeColor = (0, 0, 0)
@@ -21,6 +20,7 @@ ruledOutColor = (255, 0, 0)
 defaultSquareColor = (255, 255, 255)
 
 
+########################################################################################################################
 class Square:
     def __init__(self, x, y, w, h):
         self.x = x
@@ -47,38 +47,51 @@ class Square:
         # could possibly derive them from
 
 
+########################################################################################################################
 class Puzzle:
     def __init__(self, size):
         xOffset = (screenSize[0] / 2) - ((size * (squareSize + 5) - 5) / 2)
         yOffset = (screenSize[1] / 2) - 200  # needs to change based on the puzzle numbers :)
+        self.background = Rect(xOffset, yOffset, gridSize * (squareSize + gapSize), gridSize * (squareSize + gapSize))
         self.grid = [[Square((i * (squareSize + gapSize)) + xOffset, j * (squareSize + gapSize) + yOffset,
                              squareSize, squareSize) for i in range(size)] for j in range(size)]
-        self.toggledSquares = [[False for i in range(size)] for j in range(size)]
-        self.background = Rect(xOffset, yOffset, gridSize * (squareSize + gapSize), gridSize * (squareSize + gapSize))
         self.solution = [[random.randrange(2) for i in range(size)] for j in range(size)]
         print(self.solution)
-        self.columnHints = [[] for i in range(size)]
-        self.rowHints = [[] for i in range(size)]
-        for i, row in enumerate(self.solution):  # create rowHints
+
+        self.rowHints = self.getRowHints(size)
+        self.columnHints = self.getColumnHints(size)
+
+    def getRowHints(self, size):
+        rowHints = [[] for i in range(size)]
+
+        for i, row in enumerate(self.solution):
             currentRowHint = 0
             for j, column in enumerate(row):
                 if row[j]:
                     currentRowHint += 1
                 elif currentRowHint:
-                    self.rowHints[i].append(currentRowHint)
+                    rowHints[i].append(currentRowHint)
                     currentRowHint = 0
             if currentRowHint:
-                self.rowHints[i].append(currentRowHint)
-        for i in range(size):  # create columnHints
+                rowHints[i].append(currentRowHint)
+
+        return rowHints
+
+    def getColumnHints(self, size):
+        columnHints = [[] for i in range(size)]
+
+        for i in range(size):
             currentColumnHint = 0
             for j in range(size):
                 if self.solution[j][i]:
                     currentColumnHint += 1
                 elif currentColumnHint:
-                    self.columnHints[i].append(currentColumnHint)
+                    columnHints[i].append(currentColumnHint)
                     currentColumnHint = 0
             if currentColumnHint:
-                self.columnHints[i].append(currentColumnHint)
+                columnHints[i].append(currentColumnHint)
+
+        return columnHints
 
     def update(self, surf, dragging, squareClickedIsActive, mouseButton):
         # surf = surface
@@ -125,20 +138,62 @@ class Puzzle:
                 screen.blit(newText, (newTextRect[0], newTextRect[1] - offset))
                 offset += 16
 
+    def gridToBinaryStateGrid(self):
+        size = len(self.grid)
+        stateGrid = [[0 for i in range(size)] for j in range(size)]
 
+        for i in range(len(self.grid)):
+            for j in range(len(self.grid[i])):
+                stateGrid[i][j] = 0 if self.grid[i][j].state == 2 else self.grid[i][j].state
+
+        return stateGrid
+
+    def checkSolution(self):
+        print(self.gridToBinaryStateGrid())
+        print(self.solution)
+        if self.gridToBinaryStateGrid() == self.solution:
+            print("you win")
+        else:
+            print("you lose")
+
+
+########################################################################################################################
+class CheckButton:
+    def __init__(self):
+        self.x = 0
+        self.y = 0
+        self.w = 500
+        self.h = 250
+        self.rect = Rect(self.x, self.y, self.w, self.h)
+        self.mButtonDown = False
+
+    def update(self, puzzle, mouseButton):
+        mouseX, mouseY = mouse.get_pos()
+        draw.rect(screen, (255, 0, 0), self.rect)
+        if self.rect.collidepoint(mouseX, mouseY) and mouseButton == 1:
+            self.mButtonDown = True
+        elif self.mButtonDown and mouseButton == 0:
+            puzzle.checkSolution()
+            self.mButtonDown = False
+        else:
+            self.mButtonDown = False
+
+
+########################################################################################################################
 def main():
     puzzle = Puzzle(gridSize)
-    #gameIcon = image.load(r"stuff\susface.png")
-    #display.set_icon(gameIcon)
+    gameIcon = image.load(r"susface.png")
+    display.set_icon(gameIcon)
     dragging = False
     squareClickedIsActive = False
     mouseButton = 0
+    checkButton = CheckButton()
     clickedOnSquare = False
 
     # game loop
     running = True
     while running:
-        #display.set_caption(f"\"Picross\" (el scary edition)          FPS: {clock.get_fps():.0f}")
+        display.set_caption(f"\"Picross\" (el scary edition)          FPS: {clock.get_fps():.0f}")
 
         clickedOnSquare = False
 
@@ -177,6 +232,7 @@ def main():
         screen.fill(backgroundColor)
         draw.rect(screen, (0, 0, 0), puzzle.background)
         puzzle.update(screen, dragging, squareClickedIsActive, mouseButton)
+        checkButton.update(puzzle, mouseButton)
 
         display.update()
 
