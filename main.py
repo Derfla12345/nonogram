@@ -21,6 +21,7 @@ defaultSquareColor = (255, 255, 255)
 
 
 ########################################################################################################################
+# an individual square of the puzzle
 class Square:
     def __init__(self, x, y, w, h):
         self.x = x
@@ -48,10 +49,11 @@ class Square:
 
 
 ########################################################################################################################
+# the puzzle (handles display, solution, current state)
 class Puzzle:
     def __init__(self, size):
         xOffset = (screenSize[0] / 2) - ((size * (squareSize + 5) - 5) / 2)
-        yOffset = (screenSize[1] / 2) - 200  # needs to change based on the puzzle numbers :)
+        yOffset = (screenSize[1] / 2) - 200  # needs to change based on the puzzle size numbers :)
         self.background = Rect(xOffset, yOffset, gridSize * (squareSize + gapSize), gridSize * (squareSize + gapSize))
         self.grid = [[Square((i * (squareSize + gapSize)) + xOffset, j * (squareSize + gapSize) + yOffset,
                              squareSize, squareSize) for i in range(size)] for j in range(size)]
@@ -61,6 +63,7 @@ class Puzzle:
         self.rowHints = self.getRowHints(size)
         self.columnHints = self.getColumnHints(size)
 
+    # uses the solution to get the set of hints drawn for each row
     def getRowHints(self, size):
         rowHints = [[] for i in range(size)]
 
@@ -77,6 +80,7 @@ class Puzzle:
 
         return rowHints
 
+    # uses the solution to get the set of hints drawn for each column
     def getColumnHints(self, size):
         columnHints = [[] for i in range(size)]
 
@@ -93,6 +97,8 @@ class Puzzle:
 
         return columnHints
 
+    # checks every frame (tick?) if the user is clicking a square, and acts accordingly. also does all the displaying
+    # that needs to happen every frame (may want to move this to another function?)
     def update(self, surf, dragging, squareClickedIsActive, mouseButton):
         # surf = surface
         mouseX, mouseY = mouse.get_pos()
@@ -138,6 +144,8 @@ class Puzzle:
                 screen.blit(newText, (newTextRect[0], newTextRect[1] - offset))
                 offset += 16
 
+    # self.grid is not binary, there is a state for each square representing the user deciding a square is unfilled
+    # (represented by an 'x'. this converts that grid into a grid which treats 'x' squares as empty squares
     def gridToBinaryStateGrid(self):
         size = len(self.grid)
         stateGrid = [[0 for i in range(size)] for j in range(size)]
@@ -158,6 +166,34 @@ class Puzzle:
 
 
 ########################################################################################################################
+# generic button class
+class Button:
+    def __init__(self, x, y, w, h, buttonColor):
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+        self.color = buttonColor
+        self.rect = Rect(self.x, self.y, self.w, self.h)
+        self.mButtonDown = False
+
+    def update(self, mouseButton):
+        mouseX, mouseY = mouse.get_pos()
+        draw.rect(screen, self.color, self.rect)
+        if self.rect.collidepoint(mouseX, mouseY) and mouseButton == 1:
+            self.mButtonDown = True
+            return False
+        elif self.mButtonDown and mouseButton == 0 and self.rect.collidepoint(mouseX, mouseY):
+            self.mButtonDown = False
+            return True
+        else:
+            self.mButtonDown = False
+            return False
+
+
+"""
+########################################################################################################################
+# button that checks your solution
 class CheckButton:
     def __init__(self):
         self.x = 0
@@ -177,9 +213,10 @@ class CheckButton:
             self.mButtonDown = False
         else:
             self.mButtonDown = False
-
+"""
 
 ########################################################################################################################
+# main
 def main():
     puzzle = Puzzle(gridSize)
     gameIcon = image.load(r"susface.png")
@@ -187,7 +224,7 @@ def main():
     dragging = False
     squareClickedIsActive = False
     mouseButton = 0
-    checkButton = CheckButton()
+    checkButton = Button(0, 0, 300, 500, (255, 0, 0))
     clickedOnSquare = False
 
     # game loop
@@ -232,12 +269,18 @@ def main():
         screen.fill(backgroundColor)
         draw.rect(screen, (0, 0, 0), puzzle.background)
         puzzle.update(screen, dragging, squareClickedIsActive, mouseButton)
-        checkButton.update(puzzle, mouseButton)
+        if checkButton.update(mouseButton):
+            puzzle.checkSolution()
+        #checkButton.update(puzzle, mouseButton)
 
         display.update()
 
         clock.tick(fps)
 
-
+# call to main to start the loop
 main()
+# close app when main loop stops
 pygame.quit()
+
+########################################################################################################################
+# function definitions
